@@ -30,6 +30,14 @@ class Transfer(models.Model):
         null=True,
         blank=True,
     )
+
+    upload_token_hash = models.CharField(
+        max_length=64,
+        null=True,
+        blank=True,
+        editable=False,
+    )
+
     expires_at = models.DateTimeField(
         null=True,
         blank=True,
