@@ -1,6 +1,7 @@
 .envs/.env.local
 staticfiles/
 
+.vscode/
 ### Django ###
 *.log
 *.pot

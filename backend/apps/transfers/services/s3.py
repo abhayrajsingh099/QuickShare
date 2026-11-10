@@ -1,6 +1,6 @@
 import boto3
 from django.conf import settings
-
+from botocore.exceptions import ClientError
 
 class S3StorageService:
     def __init__(self):
@@ -23,3 +23,19 @@ class S3StorageService:
             ],
             ExpiresIn=expires_in,
         )
+
+    def get_object_size(self, object_key: str) -> int | None:
+        try:
+            response = self.client.head_object(
+                Bucket=settings.AWS_STORAGE_BUCKET_NAME,
+                Key=object_key,
+            )
+            return response["ContentLength"]
+
+        except ClientError as exc:
+            error_code = exc.response["Error"]["Code"]
+
+            if error_code in {"404", "NoSuchKey", "NotFound"}:
+                return None
+
+            raise

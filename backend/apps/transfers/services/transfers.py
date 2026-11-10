@@ -5,6 +5,11 @@ from uuid import uuid4
 
 from django.db import IntegrityError, transaction
 from django.utils import timezone
+from django.conf import settings
+from django.core.exceptions import PermissionDenied
+from django.shortcuts import get_object_or_404
+
+from rest_framework.exceptions import ValidationError
 
 from apps.transfers.models import Transfer, TransferFile
 from apps.transfers.services.s3 import S3StorageService
@@ -84,4 +89,126 @@ class TransferService:
             "upload_token": upload_token,
             "upload_deadline_at": upload_deadline.isoformat(),
             "files": upload_instructions,
+        }
+
+
+    def complete_transfer(
+        self,
+        transfer_id: str,
+        upload_token: str,
+    ) -> dict:
+        # 1. Retrieve the transfer.
+        transfer = get_object_or_404(Transfer, id=transfer_id)
+
+        # 2. Authenticate the sender.
+        expected_hash = transfer.upload_token_hash or ""
+        actual_hash = hashlib.sha256(upload_token.encode()).hexdigest()
+
+        if not secrets.compare_digest(expected_hash, actual_hash):
+            raise PermissionDenied("Invalid upload token.")
+
+        # 3. Handle repeated completion requests.
+        if transfer.status == Transfer.Status.ACTIVE:
+            return {
+                "status": transfer.status,
+                "already_completed": True,
+                "expires_at": transfer.expires_at.isoformat(),
+            }
+
+        if transfer.status != Transfer.Status.PENDING_UPLOAD:
+            raise ValidationError("This transfer cannot be completed.")
+
+        # 4. Check upload deadline.
+        if timezone.now() >= transfer.upload_deadline_at:
+            Transfer.objects.filter(
+                id=transfer.id,
+                status=Transfer.Status.PENDING_UPLOAD,
+            ).update(status=Transfer.Status.EXPIRED)
+
+            raise ValidationError("The upload deadline has expired.")
+
+        # 5. Verify all expected S3 objects.
+        files = list(transfer.files.all())
+
+        if not files:
+            raise ValidationError("No files found for this transfer.")
+
+        verification_errors = []
+
+        for file in files:
+            actual_size = self.s3_service.get_object_size(file.object_key)
+
+            if actual_size is None:
+                verification_errors.append({
+                    "file_id": str(file.id),
+                    "filename": file.original_filename,
+                    "reason": "File is missing from S3.",
+                })
+            elif actual_size != file.expected_size_bytes:
+                verification_errors.append({
+                    "file_id": str(file.id),
+                    "filename": file.original_filename,
+                    "reason": "File size does not match.",
+                })
+
+        if verification_errors:
+            raise ValidationError({"files": verification_errors})
+
+        # 6. Finalize the transfer atomically.
+        with transaction.atomic():
+            locked_transfer = Transfer.objects.select_for_update().get(
+                id=transfer.id
+            )
+
+            # Another request may have completed it meanwhile.
+            if locked_transfer.status == Transfer.Status.ACTIVE:
+                return {
+                    "status": locked_transfer.status,
+                    "already_completed": True,
+                    "expires_at": locked_transfer.expires_at.isoformat(),
+                }
+
+            if (
+                locked_transfer.status != Transfer.Status.PENDING_UPLOAD
+                or timezone.now() >= locked_transfer.upload_deadline_at
+            ):
+                raise ValidationError(
+                    "The transfer can no longer be completed."
+                )
+
+            completion_time = timezone.now()
+
+            updated_count = locked_transfer.files.filter(
+                status=TransferFile.Status.PENDING_UPLOAD,
+            ).update(
+                status=TransferFile.Status.UPLOADED,
+                uploaded_at=completion_time,
+            )
+
+            if updated_count != len(files):
+                raise ValidationError(
+                    "The file states changed during completion."
+                )
+
+            locked_transfer.status = Transfer.Status.ACTIVE
+            locked_transfer.upload_completed_at = completion_time
+            locked_transfer.expires_at = (
+                completion_time
+                + timedelta(
+                    seconds=settings.QUICKSHARE_TRANSFER_TTL_SECONDS
+                )
+            )
+
+            locked_transfer.save(
+                update_fields=[
+                    "status",
+                    "upload_completed_at",
+                    "expires_at",
+                ]
+            )
+
+        return {
+            "status": Transfer.Status.ACTIVE,
+            "already_completed": False,
+            "expires_at": locked_transfer.expires_at.isoformat(),
         }
