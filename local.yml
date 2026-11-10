@@ -1,5 +1,5 @@
 services:
-  api:
+  api: &django
     build:
       context: .
       dockerfile: ./docker/local/django/Dockerfile
@@ -50,9 +50,34 @@ services:
     networks:
       - quickshare_local_nw
 
+  rabbitmq:
+    image: rabbitmq:4-management
+    container_name: quickshare-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    env_file:
+      - ./.envs/.env.local
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    restart: unless-stopped
+    networks:
+      - quickshare_local_nw
+
+  celeryworker:
+    <<: *django
+    expose: []
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
+    command: celery -A config worker --loglevel=info
+
 networks:
   quickshare_local_nw:
     driver: bridge
 
 volumes:
   quickshare_local_db:
+  rabbitmq_data:
