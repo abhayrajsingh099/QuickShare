@@ -136,6 +136,7 @@ class TransferService:
             raise ValidationError("No files found for this transfer.")
 
         verification_errors = []
+        verified_sizes = {}
 
         for file in files:
             actual_size = self.s3_service.get_object_size(file.object_key)
@@ -152,6 +153,8 @@ class TransferService:
                     "filename": file.original_filename,
                     "reason": "File size does not match.",
                 })
+            else:
+                verified_sizes[file.id] = actual_size
 
         if verification_errors:
             raise ValidationError({"files": verification_errors})
@@ -191,6 +194,11 @@ class TransferService:
                 raise ValidationError(
                     "The file states changed during completion."
                 )
+
+            for file in files:
+                file.size_bytes = verified_sizes[file.id]
+
+            TransferFile.objects.bulk_update(files, ["size_bytes"])
 
             locked_transfer.status = Transfer.Status.ACTIVE
             locked_transfer.upload_completed_at = completion_time

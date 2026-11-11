@@ -39,3 +39,14 @@ class S3StorageService:
                 return None
 
             raise
+
+    def download_object(
+        self,
+        object_key: str,
+        destination_path: str,
+    ) -> None:
+        self.client.download_file(
+            Bucket=settings.AWS_STORAGE_BUCKET_NAME,
+            Key=object_key,
+            Filename=destination_path,
+        )
