@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "b9e5765cb388b8802cad3b75a8e0023f521389e4dc78f651eaa84ddbf14bf996"
+            "sha256": "12fd08e5676620d612763423f1dfb0bfcee3754cf12751ada8b70562e415bf0c"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -67,6 +67,15 @@
             ],
             "markers": "python_version >= '3.9'",
             "version": "==5.6.3"
+        },
+        "clamav-client": {
+            "hashes": [
+                "sha256:294ade0fb1e902db2399daa3f27a7023ca216282f129f0b2466abd5672b27397",
+                "sha256:d136f44acc79ceada188a200ac0f68840abb7cfae1fa5f9d535f11cfc244cccd"
+            ],
+            "index": "pypi",
+            "markers": "python_version >= '3.9'",
+            "version": "==0.7.2"
         },
         "click": {
             "hashes": [

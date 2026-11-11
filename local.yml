@@ -67,12 +67,37 @@ services:
   celeryworker:
     <<: *django
     expose: []
+    volumes:
+      - ./backend:/app/backend
+      - quickshare_scan_tmp:/var/quickshare/scans
     depends_on:
       postgres:
         condition: service_healthy
       rabbitmq:
         condition: service_started
     command: celery -A config worker --loglevel=info
+
+  clamav:
+    image: clamav/clamav:1.4.3
+    restart: unless-stopped
+    expose:
+      - "3310"
+    environment:
+      CLAMAV_NO_CLAMD: "false"
+      CLAMAV_NO_FRESHCLAMD: "false"
+      CLAMAV_NO_MILTERD: "true"
+      FRESHCLAM_CHECKS: "1"
+
+      CLAMD_CONF_TCPSocket: "3310"
+      CLAMD_CONF_TCPAddr: "0.0.0.0"
+      CLAMD_CONF_MaxFileSize: "160M"
+      CLAMD_CONF_MaxScanSize: "300M"
+
+    volumes:
+      - clamav_db:/var/lib/clamav
+      - quickshare_scan_tmp:/var/quickshare/scans
+    networks:
+      - quickshare_local_nw
 
 networks:
   quickshare_local_nw:
@@ -81,3 +106,5 @@ networks:
 volumes:
   quickshare_local_db:
   rabbitmq_data:
+  clamav_db:
+  quickshare_scan_tmp:

@@ -2,6 +2,8 @@ import hashlib
 import secrets
 from datetime import timedelta
 from uuid import uuid4
+from functools import partial
+from apps.transfers.tasks import enqueue_file_scan_tasks
 
 from django.db import IntegrityError, transaction
 from django.utils import timezone
@@ -205,6 +207,12 @@ class TransferService:
                     "upload_completed_at",
                     "expires_at",
                 ]
+            )
+
+            file_ids = [str(file.id) for file in files]
+
+            transaction.on_commit(
+                partial(enqueue_file_scan_tasks, file_ids)
             )
 
         return {
