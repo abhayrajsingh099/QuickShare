@@ -9,6 +9,8 @@ from django.conf import settings
 from apps.transfers.services.s3 import S3StorageService
 from apps.transfers.models import TransferFile
 
+from apps.transfers.services.cleanup import TransferCleanupService
+
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=30)
 def scan_transfer_file(self, file_id: str):
@@ -126,3 +128,21 @@ def save_scan_result(file_id: str, scan_result) -> None:
         file.save(update_fields=["status", "scanned_at"])
 
 
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+def cleanup_quickshare_storage(self):
+    try:
+        cleanup = TransferCleanupService()
+
+        expired_transfers = cleanup.cleanup_expired_transfers()
+        rejected_files = cleanup.cleanup_rejected_files()
+        temporary_files = cleanup.cleanup_temporary_scan_files()
+
+        return {
+            "expired_transfers": expired_transfers,
+            "rejected_files": rejected_files,
+            "temporary_files": temporary_files,
+        }
+
+    except Exception as exc:
+        raise self.retry(exc=exc)

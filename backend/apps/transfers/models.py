@@ -115,6 +115,10 @@ class TransferFile(models.Model):
         null=True,
         blank=True,
     )
+    storage_deleted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
