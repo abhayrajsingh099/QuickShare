@@ -104,7 +104,7 @@ class TransferFile(models.Model):
         default=Status.PENDING_UPLOAD,
     )
 
-    max_downloads = models.PositiveSmallIntegerField(default=10)
+    max_downloads = models.PositiveSmallIntegerField(default=5)
     download_count = models.PositiveSmallIntegerField(default=0)
 
     uploaded_at = models.DateTimeField(

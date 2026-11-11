@@ -3,9 +3,9 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.transfers.serializers import TransferInitializationSerializer
+from apps.transfers.serializers import TransferInitializationSerializer, TransferLookupSerializer
 from apps.transfers.services.transfers import TransferService
-
+from apps.transfers.services.receivers import ReceiverService
 
 class HealthCheckView(APIView):
 
@@ -56,6 +56,26 @@ class TransferCompletionView(APIView):
         result = TransferService().complete_transfer(
             transfer_id=transfer_id,
             upload_token=upload_token,
+        )
+
+        return Response(result, status=status.HTTP_200_OK)
+
+class TransferLookupView(APIView):
+    def post(self, request):
+        serializer = TransferLookupSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        result = ReceiverService().lookup_transfer(
+            share_code=serializer.validated_data["share_code"],
+        )
+
+        return Response(result, status=status.HTTP_200_OK)
+
+class FileDownloadView(APIView):
+    def post(self, request, transfer_id, file_id):
+        result = ReceiverService().issue_download_url(
+            transfer_id=transfer_id,
+            file_id=file_id,
         )
 
         return Response(result, status=status.HTTP_200_OK)

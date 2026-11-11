@@ -31,3 +31,12 @@ class TransferInitializationSerializer(serializers.Serializer):
             )
 
         return files
+
+
+class TransferLookupSerializer(serializers.Serializer):
+    share_code = serializers.RegexField(
+        regex=r"^\d{8}$",
+        error_messages={
+            "invalid": "Share code must contain exactly 8 digits."
+        },
+    )
