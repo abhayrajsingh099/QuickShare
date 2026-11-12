@@ -1,3 +1,4 @@
+
 import os
 from pathlib import Path
 
@@ -6,25 +7,45 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 ROOT_DIR = BASE_DIR.parent
 
-load_dotenv(ROOT_DIR / ".envs" / ".env.local")
+# Load the local environment file only during local development.
+DJANGO_SETTINGS_MODULE = os.getenv("DJANGO_SETTINGS_MODULE", "")
+IS_PRODUCTION = DJANGO_SETTINGS_MODULE.endswith(".production")
 
-SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
+if DJANGO_SETTINGS_MODULE.endswith(".local"):
+    load_dotenv(ROOT_DIR / ".envs" / ".env.local")
+
+# Core settings
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "")
 
 DEBUG = os.getenv("DJANGO_DEBUG", "False").lower() == "true"
 
-ALLOWED_HOSTS = os.getenv(
-    "DJANGO_ALLOWED_HOSTS", ""
-).split(",")
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.getenv("DJANGO_ALLOWED_HOSTS", "").split(",")
+    if host.strip()
+]
+
+# Fail early if essential production settings are missing.
+if IS_PRODUCTION:
+    if not SECRET_KEY:
+        raise ValueError("DJANGO_SECRET_KEY must be set in production.")
+
+    if not ALLOWED_HOSTS:
+        raise ValueError("DJANGO_ALLOWED_HOSTS must be set in production.")
+
+    if DEBUG:
+        raise ValueError("DJANGO_DEBUG must be False in production.")
+
 
 # Application definition
 
 DJANGO_APPS = [
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
 ]
 
 THIRD_PARTY_APPS = [
@@ -40,38 +61,37 @@ LOCAL_APPS = [
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
 MIDDLEWARE = [
-    'django.middleware.security.SecurityMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
+    "django.middleware.security.SecurityMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
     "corsheaders.middleware.CorsMiddleware",
-    'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-ROOT_URLCONF = 'config.urls'
+ROOT_URLCONF = "config.urls"
 
 TEMPLATES = [
     {
-        'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
-        'APP_DIRS': True,
-        'OPTIONS': {
-            'context_processors': [
-                'django.template.context_processors.request',
-                'django.contrib.auth.context_processors.auth',
-                'django.contrib.messages.context_processors.messages',
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
             ],
         },
     },
 ]
 
-WSGI_APPLICATION = 'config.wsgi.application'
+WSGI_APPLICATION = "config.wsgi.application"
 
 
 # Database
-# https://docs.djangoproject.com/en/6.1/ref/settings/#databases
 
 DATABASES = {
     "default": {
@@ -86,51 +106,50 @@ DATABASES = {
 
 
 # Password validation
-# https://docs.djangoproject.com/en/6.1/ref/settings/#auth-password-validators
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
     },
 ]
 
 
 # Internationalization
-# https://docs.djangoproject.com/en/6.1/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = "en-us"
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = "UTC"
 
 USE_I18N = True
 
 USE_TZ = True
 
 
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/6.1/howto/static-files/
+# Static files
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
 
 # Email
-# https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
 
 MAILERS = {
-    'default': {
-        'BACKEND': 'django.core.mail.backends.console.EmailBackend',
+    "default": {
+        "BACKEND": "django.core.mail.backends.console.EmailBackend",
     },
 }
+
+
+# Django REST Framework
 
 REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
@@ -152,15 +171,22 @@ SPECTACULAR_SETTINGS = {
     "SERVE_INCLUDE_SCHEMA": False,
 }
 
+
+# AWS S3
+
 AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")
 AWS_S3_REGION_NAME = os.getenv("AWS_S3_REGION_NAME")
 
+
 # QuickShare upload limits
+
 QUICKSHARE_MAX_FILES_PER_TRANSFER = 5
 QUICKSHARE_MAX_TRANSFER_SIZE_BYTES = 150 * 1024 * 1024
 QUICKSHARE_TRANSFER_TTL_SECONDS = 3600
 
+
 # RabbitMQ
+
 RABBITMQ_USER = os.getenv("RABBITMQ_DEFAULT_USER")
 RABBITMQ_PASSWORD = os.getenv("RABBITMQ_DEFAULT_PASS")
 RABBITMQ_HOST = os.getenv("RABBITMQ_HOST")
@@ -173,8 +199,12 @@ CELERY_BROKER_URL = (
 )
 
 # Celery - RabbitMQ compatibility
+
 CELERY_CONTROL_QUEUE_EXCLUSIVE = True
 CELERY_EVENT_QUEUE_EXCLUSIVE = True
+
+
+# ClamAV
 
 CLAMAV_HOST = os.getenv("CLAMAV_HOST", default="clamav")
 CLAMAV_PORT = int(os.getenv("CLAMAV_PORT", default=3310))
