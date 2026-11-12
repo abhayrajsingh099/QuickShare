@@ -13,6 +13,7 @@ celery = {extras = ["pyamqp"], version = "==5.6.3"}
 clamav-client = "==0.7.2"
 drf-spectacular = "==0.30.0"
 django-cors-headers = "*"
+gunicorn = "==23.0.0"
 
 [dev-packages]
 

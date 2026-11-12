@@ -1,0 +1,140 @@
+services:
+  api: &django
+    build:
+      context: .
+      dockerfile: ./docker/production/django/Dockerfile
+    image: quickshare-api:prod
+    restart: unless-stopped
+    env_file:
+      - ./.envs/.env.production
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.production
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      CLAMAV_HOST: clamav
+      CLAMAV_PORT: 3310
+    expose:
+      - "8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["/start.sh"]
+    networks:
+      - quickshare_prod_nw
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - quickshare_prod_db:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - quickshare_prod_nw
+
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./docker/production/nginx/nginx.conf:/etc/nginx/conf.d/nginx.conf:ro
+    depends_on:
+      - api
+    networks:
+      - quickshare_prod_nw
+
+  rabbitmq:
+    image: rabbitmq:4-management
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:?RabbitMQ user is required}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:?RabbitMQ password is required}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-/}
+    volumes:
+      - rabbitmq_prod_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - quickshare_prod_nw
+
+  celeryworker:
+    <<: *django
+    expose: []
+    volumes:
+      - quickshare_scan_tmp:/var/quickshare/scans
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      clamav:
+        condition: service_started
+    command:
+      - celery
+      - -A
+      - config
+      - worker
+      - --loglevel=INFO
+      - --concurrency=${CELERY_WORKER_CONCURRENCY:-1}
+      - --prefetch-multiplier=1
+      - --hostname=quickshare-worker@%h
+
+  celerybeat:
+    <<: *django
+    expose: []
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    command:
+      - celery
+      - -A
+      - config
+      - beat
+      - --loglevel=INFO
+
+  clamav:
+    image: clamav/clamav:1.4.3
+    restart: unless-stopped
+    expose:
+      - "3310"
+    environment:
+      CLAMAV_NO_CLAMD: "false"
+      CLAMAV_NO_FRESHCLAMD: "false"
+      CLAMAV_NO_MILTERD: "true"
+      FRESHCLAM_CHECKS: "1"
+      CLAMD_CONF_TCPSocket: "3310"
+      CLAMD_CONF_TCPAddr: "0.0.0.0"
+      CLAMD_CONF_MaxFileSize: "160M"
+      CLAMD_CONF_MaxScanSize: "300M"
+    volumes:
+      - clamav_prod_db:/var/lib/clamav
+      - quickshare_scan_tmp:/var/quickshare/scans
+    networks:
+      - quickshare_prod_nw
+
+networks:
+  quickshare_prod_nw:
+    driver: bridge
+
+volumes:
+  quickshare_prod_db:
+  rabbitmq_prod_data:
+  clamav_prod_db:
+  quickshare_scan_tmp:
