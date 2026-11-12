@@ -64,6 +64,7 @@ class TransferFile(models.Model):
         SCANNING = "SCANNING", "Scanning"
         AVAILABLE = "AVAILABLE", "Available"
         REJECTED = "REJECTED", "Rejected"
+        FAILED = "FAILED", "Scan failed"
         DELETED = "DELETED", "Deleted"
 
     id = models.UUIDField(

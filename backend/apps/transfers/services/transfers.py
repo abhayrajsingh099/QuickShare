@@ -228,3 +228,52 @@ class TransferService:
             "already_completed": False,
             "expires_at": locked_transfer.expires_at.isoformat(),
         }
+
+    def get_transfer_status(
+        self,
+        transfer_id: str,
+        upload_token: str,
+    ) -> dict:
+        transfer = get_object_or_404(Transfer, id=transfer_id)
+
+        expected_hash = transfer.upload_token_hash or ""
+        actual_hash = hashlib.sha256(upload_token.encode()).hexdigest()
+
+        if not secrets.compare_digest(expected_hash, actual_hash):
+            raise PermissionDenied("Invalid upload token.")
+
+        files = transfer.files.values(
+            "id",
+            "original_filename",
+            "status",
+        )
+
+        terminal_statuses = {
+            TransferFile.Status.AVAILABLE,
+            TransferFile.Status.REJECTED,
+            TransferFile.Status.FAILED,
+        }
+
+        file_list = list(files)
+
+        scan_completed = all(
+            file["status"] in terminal_statuses
+            for file in file_list
+        )
+
+        result = {
+            "scan_completed": scan_completed,
+            "files": [
+                {
+                    "file_id": str(file["id"]),
+                    "filename": file["original_filename"],
+                    "status": file["status"],
+                }
+                for file in file_list
+            ],
+        }
+
+        if scan_completed:
+            result["share_code"] = transfer.share_code
+
+        return result

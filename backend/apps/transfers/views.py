@@ -79,3 +79,21 @@ class FileDownloadView(APIView):
         )
 
         return Response(result, status=status.HTTP_200_OK)
+
+
+class TransferStatusView(APIView):
+    def get(self, request, transfer_id):
+        upload_token = request.headers.get("X-Upload-Token")
+
+        if not upload_token:
+            return Response(
+                {"detail": "X-Upload-Token header is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        result = TransferService().get_transfer_status(
+            transfer_id=transfer_id,
+            upload_token=upload_token,
+        )
+
+        return Response(result, status=status.HTTP_200_OK)

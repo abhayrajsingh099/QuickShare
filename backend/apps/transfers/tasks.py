@@ -28,6 +28,23 @@ def scan_transfer_file(self, file_id: str):
         save_scan_result(file_id, scan_result)
 
     except Exception as exc:
+        if self.request.retries >= self.max_retries:
+            with transaction.atomic():
+                file = (
+                    TransferFile.objects.select_for_update()
+                    .filter(
+                        id=file_id,
+                        status=TransferFile.Status.SCANNING,
+                    )
+                    .first()
+                )
+
+                if file:
+                    file.status = TransferFile.Status.FAILED
+                    file.save(update_fields=["status"])
+
+            raise
+
         raise self.retry(exc=exc)
 
 def enqueue_file_scan_tasks(file_ids: list[str]) -> None:
@@ -49,6 +66,7 @@ def prepare_file_for_scanning(file_id: str):
         if file.status in {
             TransferFile.Status.AVAILABLE,
             TransferFile.Status.REJECTED,
+            TransferFile.Status.FAILED,
             TransferFile.Status.DELETED,
         }:
             return None

@@ -6,6 +6,7 @@ from .views import (
     TransferCompletionView,
     TransferLookupView,
     FileDownloadView,
+    TransferStatusView,
 )
 
 urlpatterns = [
@@ -24,6 +25,11 @@ urlpatterns = [
         "<uuid:transfer_id>/files/<uuid:file_id>/download/",
         FileDownloadView.as_view(),
         name="file-download",
+    ),
+    path(
+        "<uuid:transfer_id>/status/",
+        TransferStatusView.as_view(),
+        name="transfer-status",
     ),
     path("health/", HealthCheckView.as_view(), name="health-check"),
 ]
