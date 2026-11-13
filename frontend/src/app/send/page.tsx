@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRef, useState } from "react";
+import { API_BASE_URL } from "../../lib/api";
 
 const MAX_FILES = 5;
 const MAX_TOTAL_SIZE = 150 * 1024 * 1024;
@@ -128,7 +129,7 @@ export default function SendPage() {
 
   async function completeTransfer(transferData: TransferResponse) {
     const response = await fetch(
-      `http://localhost:8080/api/transfers/${transferData.transfer_id}/complete/`,
+      `${API_BASE_URL}/transfers/${transferData.transfer_id}/complete/`,
       {
         method: "POST",
         headers: {
@@ -149,7 +150,7 @@ export default function SendPage() {
     transferData: TransferResponse
   ): Promise<ScanStatusResponse> {
     const response = await fetch(
-      `http://localhost:8080/api/transfers/${transferData.transfer_id}/status/`,
+      `${API_BASE_URL}/transfers/${transferData.transfer_id}/status/`,
       {
         method: "GET",
         headers: {
@@ -203,7 +204,7 @@ export default function SendPage() {
 
     try {
       // Step 1: Initialize transfer with Django.
-      const response = await fetch("http://localhost:8080/api/transfers/", {
+      const response = await fetch(`${API_BASE_URL}/transfers/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
