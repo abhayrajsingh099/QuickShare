@@ -138,6 +138,14 @@ services:
     volumes:
       - clamav_prod_db:/var/lib/clamav
       - quickshare_scan_tmp:/var/quickshare/scans
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'test "$$(echo PING | nc -w 2 127.0.0.1 3310)" = PONG'
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 6m
     networks:
       - quickshare_prod_nw
 
