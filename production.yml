@@ -1,3 +1,4 @@
+
 services:
   api: &django
     build:
@@ -50,10 +51,21 @@ services:
       - "80:80"
     volumes:
       - ./docker/production/nginx/nginx.conf:/etc/nginx/conf.d/nginx.conf:ro
+      - certbot_webroot:/var/www/certbot:ro
+      - certbot_certs:/etc/letsencrypt:ro
     depends_on:
       - api
     networks:
       - quickshare_prod_nw
+
+  certbot:
+    image: certbot/certbot:latest
+    profiles:
+      - certbot
+    entrypoint: ["certbot"]
+    volumes:
+      - certbot_certs:/etc/letsencrypt
+      - certbot_webroot:/var/www/certbot
 
   rabbitmq:
     image: rabbitmq:4-management
@@ -138,3 +150,5 @@ volumes:
   rabbitmq_prod_data:
   clamav_prod_db:
   quickshare_scan_tmp:
+  certbot_certs:
+  certbot_webroot:
