@@ -3,6 +3,8 @@ import os
 
 from .base import *
 
+from corsheaders.defaults import default_headers
+
 DEBUG = False
 
 # Frontend origins, supplied through production environment variables.
@@ -16,6 +18,11 @@ CSRF_TRUSTED_ORIGINS = [
     origin.strip()
     for origin in os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",")
     if origin.strip()
+]
+
+CORS_ALLOW_HEADERS = [
+    *default_headers,
+    "x-upload-token",
 ]
 
 # Nginx terminates HTTPS and forwards requests to Django.
