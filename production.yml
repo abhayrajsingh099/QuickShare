@@ -18,6 +18,8 @@ services:
       CLAMAV_PORT: 3310
     expose:
       - "8000"
+    volumes:
+      - staticfiles:/app/backend/staticfiles
     depends_on:
       postgres:
         condition: service_healthy
